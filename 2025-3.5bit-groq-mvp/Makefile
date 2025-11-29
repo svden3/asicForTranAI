@@ -10,7 +10,7 @@ OPENMP_FLAGS = -fopenmp
 # Source files
 CORE_SOURCES = matmul_int4_groq.f90 transformer_layer.f90
 WEIGHT_LOADER_SOURCE = weight_loader.f90
-OPTIMIZED_SOURCES = matmul_int4_optimized.f90
+OPTIMIZED_SOURCES = matmul_fully_optimized.f90
 MODEL_SOURCES = $(CORE_SOURCES) llama_model.f90
 MAIN_SOURCE = llama70b_int4.f90
 TEST_SOURCE = test_transformer_layer.f90

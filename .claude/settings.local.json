@@ -55,7 +55,9 @@
       "Bash(git reset:*)",
       "Bash(conda install:*)",
       "Bash(bash -s -- --yes)",
-      "Bash(make test-weights:*)"
+      "Bash(make test-weights:*)",
+      "Bash(make benchmark-opt:*)",
+      "Bash(./test_weights_debug:*)"
     ],
     "deny": [],
     "ask": []

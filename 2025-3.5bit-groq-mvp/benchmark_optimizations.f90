@@ -5,7 +5,7 @@
 program benchmark_optimizations
     use iso_fortran_env, only: int8, int32, int64, real32
     use matmul_int4_groq, only: matmul_int4_awq
-    use matmul_int4_optimized, only: matmul_int4_awq_optimized
+    use matmul_fully_optimized, only: matmul_int4_ultra
     implicit none
 
     ! Test configurations
@@ -84,9 +84,9 @@ program benchmark_optimizations
     ! ================================================
     ! WARMUP: Optimized
     ! ================================================
-    print *, 'Warming up OPTIMIZED implementation...'
+    print *, 'Warming up FULLY OPTIMIZED implementation...'
     do i = 1, NUM_WARMUP
-        call matmul_int4_awq_optimized(A, W_Q, W_scales, C_optimized, M, N, K_dim)
+        call matmul_int4_ultra(A, W_Q, W_scales, C_optimized, M, N, K_dim)
     end do
     print *, '  Warmup complete'
     print *, ''
@@ -94,11 +94,11 @@ program benchmark_optimizations
     ! ================================================
     ! BENCHMARK: Optimized
     ! ================================================
-    print *, 'Benchmarking OPTIMIZED implementation...'
+    print *, 'Benchmarking FULLY OPTIMIZED implementation...'
     call system_clock(t_start)
 
     do i = 1, NUM_ITERATIONS
-        call matmul_int4_awq_optimized(A, W_Q, W_scales, C_optimized, M, N, K_dim)
+        call matmul_int4_ultra(A, W_Q, W_scales, C_optimized, M, N, K_dim)
     end do
 
     call system_clock(t_end)
