@@ -74,7 +74,8 @@ def accumulate {M K N : ℕ}
 /-- Theorem: Quantization preserves representation bounds -/
 theorem quantize_bounded (x : ℝ) (p : QuantParams) :
   -128 ≤ (quantize x p).val ∧ (quantize x p).val ≤ 127 := by
-  sorry
+  -- The quantize function returns an Int8, which by definition has val in [-128, 127]
+  exact (quantize x p).property
 
 /-- Theorem: Dequantization is inverse of quantization (within error bound) -/
 theorem dequant_quant_close (x : ℝ) (p : QuantParams)

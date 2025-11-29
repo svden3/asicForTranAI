@@ -9,11 +9,13 @@ OPENMP_FLAGS = -fopenmp
 
 # Source files
 CORE_SOURCES = matmul_int4_groq.f90 transformer_layer.f90
+WEIGHT_LOADER_SOURCE = weight_loader.f90
 OPTIMIZED_SOURCES = matmul_int4_optimized.f90
 MODEL_SOURCES = $(CORE_SOURCES) llama_model.f90
 MAIN_SOURCE = llama70b_int4.f90
 TEST_SOURCE = test_transformer_layer.f90
 TEST_MODEL_SOURCE = test_llama_model.f90
+TEST_WEIGHT_LOADING_SOURCE = test_weight_loading.f90
 BENCHMARK_SOURCE = benchmark_optimizations.f90
 
 # Object files
@@ -23,6 +25,7 @@ CORE_OBJECTS = $(CORE_SOURCES:.f90=.o)
 TARGET_MAIN = llama_inference
 TARGET_TEST = test_layer
 TARGET_MODEL_TEST = test_llama_80layers
+TARGET_WEIGHT_TEST = test_weights
 TARGET_DEBUG = test_layer_debug
 TARGET_BENCHMARK = bench_optimizations
 TARGET_GEN_WEIGHTS = gen_test_weights
@@ -123,6 +126,23 @@ gen-weights: $(TARGET_GEN_WEIGHTS)
 	@echo ""
 	@echo "✓ Test weights generated: test_weights_layer0.bin"
 
+# Build weight loading test
+$(TARGET_WEIGHT_TEST): $(CORE_SOURCES) $(WEIGHT_LOADER_SOURCE) $(TEST_WEIGHT_LOADING_SOURCE)
+	@echo "Building weight loading test..."
+	$(FC) $(FFLAGS) -o $@ $^
+	@echo "✓ Built: $@"
+
+# Test weight loading
+test-weights: $(TARGET_WEIGHT_TEST)
+	@echo ""
+	@echo "Testing weight loading..."
+	@echo "=========================================="
+	@if [ ! -f test_weights_layer0.bin ]; then \
+		echo "⚠ test_weights_layer0.bin not found. Running gen-weights first..."; \
+		$(MAKE) gen-weights; \
+	fi
+	./$(TARGET_WEIGHT_TEST)
+
 # Quick benchmark (old)
 benchmark: $(TARGET_TEST)
 	@echo "Running benchmarks..."
@@ -141,7 +161,7 @@ lint:
 
 # Clean build artifacts
 clean:
-	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_TEST) $(TARGET_MODEL_TEST) $(TARGET_DEBUG) $(TARGET_BENCHMARK) $(TARGET_GEN_WEIGHTS) test_layer_omp test_weights_*.bin
+	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_TEST) $(TARGET_MODEL_TEST) $(TARGET_WEIGHT_TEST) $(TARGET_DEBUG) $(TARGET_BENCHMARK) $(TARGET_GEN_WEIGHTS) test_layer_omp test_weights_*.bin
 	@echo "✓ Cleaned build artifacts"
 
 # Clean and rebuild

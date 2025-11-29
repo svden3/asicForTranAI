@@ -35,6 +35,7 @@ def LowNibble := { n : ℤ // -4 ≤ n ∧ n ≤ 3 }
 def Raw7Bit := { n : ℤ // 0 ≤ n ∧ n < 128 }
 
 /-- 3.5-bit quantized pair -/
+@[ext]
 structure QuantizedPair where
   n1 : HighNibble  -- 4 high bits
   n2 : LowNibble   -- 3 low bits
@@ -52,8 +53,8 @@ def extractHigh (raw : Raw7Bit) : HighNibble :=
     have h1 : 0 ≤ raw.val ∧ raw.val < 128 := raw.property
     have h2 : 0 ≤ shifted ∧ shifted < 16 := by omega
     by_cases h : shifted ≥ 8
-    · simp [h]; omega
-    · simp [h]; omega
+    · omega
+    · omega
   ⟩
 
 /-- Extract low 3 bits from 7-bit value (bitwise AND with 0b111) -/
@@ -67,8 +68,8 @@ def extractLow (raw : Raw7Bit) : LowNibble :=
       · exact Int.emod_nonneg raw.val (by omega : (8:ℤ) ≠ 0)
       · exact Int.emod_lt_of_pos raw.val (by omega : 0 < (8:ℤ))
     by_cases h : masked ≥ 4
-    · simp [h]; omega
-    · simp [h]; omega
+    · omega
+    · omega
   ⟩
 
 /-- Decode 7-bit raw to quantized pair -/
@@ -84,12 +85,12 @@ def encode (pair : QuantizedPair) : Raw7Bit :=
     -- Proof: n1 ∈ [0,15], n2 ∈ [0,7] → packed ∈ [0,127]
     have h1 : 0 ≤ n1_unsigned ∧ n1_unsigned < 16 := by
       by_cases hn : pair.n1.val < 0
-      · simp [hn]; have := pair.n1.property; omega
-      · simp [hn]; have := pair.n1.property; omega
+      · have := pair.n1.property; omega
+      · have := pair.n1.property; omega
     have h2 : 0 ≤ n2_unsigned ∧ n2_unsigned < 8 := by
       by_cases hn : pair.n2.val < 0
-      · simp [hn]; have := pair.n2.property; omega
-      · simp [hn]; have := pair.n2.property; omega
+      · have := pair.n2.property; omega
+      · have := pair.n2.property; omega
     omega
   ⟩
 
@@ -100,59 +101,71 @@ def encode (pair : QuantizedPair) : Raw7Bit :=
 /-- **THEOREM 1**: Decoding preserves value ranges
     Proves that extracting n1,n2 from any 7-bit value yields valid ranges -/
 theorem decode_preserves_ranges (raw : Raw7Bit) :
-    let pair := decode raw
-    -8 ≤ pair.n1.val ∧ pair.n1.val ≤ 7 ∧
-    -4 ≤ pair.n2.val ∧ pair.n2.val ≤ 3 := by
-  simp [decode]
-  constructor
-  · exact (extractHigh raw).property.1
-  constructor
-  · exact (extractHigh raw).property.2
-  constructor
-  · exact (extractLow raw).property.1
-  · exact (extractLow raw).property.2
+    -8 ≤ (decode raw).n1.val ∧ (decode raw).n1.val ≤ 7 ∧
+    -4 ≤ (decode raw).n2.val ∧ (decode raw).n2.val ≤ 3 := by
+  unfold decode
+  exact ⟨(extractHigh raw).property.1, (extractHigh raw).property.2,
+         (extractLow raw).property.1, (extractLow raw).property.2⟩
 
 /-- **THEOREM 2**: Encode-decode round-trip is identity
     Critical for verifying lossless packing/unpacking -/
 theorem encode_decode_identity (pair : QuantizedPair) :
     decode (encode pair) = pair := by
-  -- Proof strategy:
-  -- 1. Show encode maps to correct raw value
-  -- 2. Show extractHigh/extractLow invert the packing
-  -- 3. Conclude round-trip preserves pair
+  -- Proof: Show encoding then decoding preserves both nibbles
   ext
-  · -- Prove n1 preserved
-    simp [decode, encode, extractHigh]
+  · -- Prove n1 preserved: decode(encode(n1)) = n1
+    simp only [decode, encode, extractHigh]
     have h1 := pair.n1.property
+    -- Compute packed value's contribution from n1
     by_cases hn : pair.n1.val < 0
-    · -- Case: n1 ∈ [-8, -1]
-      have : pair.n1.val + 16 ≥ 8 := by omega
-      simp [hn, this]; omega
-    · -- Case: n1 ∈ [0, 7]
-      have : pair.n1.val < 8 := by omega
-      simp [hn, this]; omega
-  · -- Prove n2 preserved
-    simp [decode, encode, extractLow]
+    · -- n1 negative: encoded as (n1+16), decoded via (val/8 - 16)
+      have h_enc : 8 ≤ pair.n1.val + 16 ∧ pair.n1.val + 16 ≤ 15 := by omega
+      -- Division extracts the high nibble correctly
+      have h_div : ((pair.n1.val + 16) * 8 + (if pair.n2.val < 0 then pair.n2.val + 8 else pair.n2.val)) / 8 = pair.n1.val + 16 := by
+        have h_n2 := pair.n2.property
+        by_cases hn2 : pair.n2.val < 0 <;> omega
+      simp only [if_pos hn, h_div, if_pos h_enc.1]
+      simp [add_sub_cancel]
+    · -- n1 non-negative: encoded and decoded identity
+      have h_enc : pair.n1.val ≤ 7 := by omega
+      have h_div : ((pair.n1.val) * 8 + (if pair.n2.val < 0 then pair.n2.val + 8 else pair.n2.val)) / 8 = pair.n1.val := by
+        have h_n2 := pair.n2.property
+        by_cases hn2 : pair.n2.val < 0 <;> omega
+      simp only [if_neg hn, h_div]
+      have : ¬ (pair.n1.val ≥ 8) := by omega
+      simp only [if_neg this]
+      rfl
+  · -- Prove n2 preserved: decode(encode(n2)) = n2
+    simp only [decode, encode, extractLow]
     have h2 := pair.n2.property
     by_cases hn : pair.n2.val < 0
-    · -- Case: n2 ∈ [-4, -1]
-      have : pair.n2.val + 8 ≥ 4 := by omega
-      simp [hn, this]; omega
-    · -- Case: n2 ∈ [0, 3]
-      have : pair.n2.val < 4 := by omega
-      simp [hn, this]; omega
+    · -- n2 negative: encoded as (n2+8), decoded via (val%8 - 8)
+      have h_enc : 4 ≤ pair.n2.val + 8 ∧ pair.n2.val + 8 ≤ 7 := by omega
+      have h_mod : ((if pair.n1.val < 0 then pair.n1.val + 16 else pair.n1.val) * 8 + (pair.n2.val + 8)) % 8 = pair.n2.val + 8 := by
+        have h_n1 := pair.n1.property
+        by_cases hn1 : pair.n1.val < 0 <;> omega
+      simp only [if_pos hn, h_mod, if_pos h_enc.1]
+      simp [sub_add_cancel]
+    · -- n2 non-negative: encoded and decoded identity
+      have h_enc : pair.n2.val ≤ 3 := by omega
+      have h_mod : ((if pair.n1.val < 0 then pair.n1.val + 16 else pair.n1.val) * 8 + pair.n2.val) % 8 = pair.n2.val := by
+        have h_n1 := pair.n1.property
+        by_cases hn1 : pair.n1.val < 0 <;> omega
+      simp only [if_neg hn, h_mod]
+      have : ¬ (pair.n2.val ≥ 4) := by omega
+      simp only [if_neg this]
+      rfl
 
 /-- **THEOREM 3**: Quantization error bound
     For real-valued inputs, quantization error ≤ 0.5 in each nibble -/
-theorem quantization_error_bounded (x : ℝ) (hx : -8 ≤ x ∧ x ≤ 7) :
-    let quantized := (⌊x + 0.5⌋ : ℤ)  -- Round to nearest integer
-    let error := |x - quantized|
-    error ≤ 0.5 := by
+theorem quantization_error_bounded (x : ℝ) (_hx : -8 ≤ x ∧ x ≤ 7) :
+    let quantized := (⌊x + 0.5⌋ : ℤ)
+    |x - ↑quantized| ≤ 0.5 := by
   -- Standard rounding error bound proof
-  simp only [abs_sub_le_iff]
-  constructor
-  · linarith [Int.sub_floor_div_mul_nonneg (x + 0.5 - ⌊x + 0.5⌋) (1:ℤ)]
-  · linarith [Int.floor_le (x + 0.5)]
+  have h1 : ↑⌊x + 0.5⌋ ≤ x + 0.5 := Int.floor_le (x + 0.5)
+  have h2 : x + 0.5 < ↑⌊x + 0.5⌋ + 1 := Int.lt_floor_add_one (x + 0.5)
+  rw [abs_sub_le_iff]
+  constructor <;> linarith
 
 /-- **THEOREM 4**: Total compression ratio
     Proves 7 bits encode 2 values → 3.5 bits/value -/
@@ -162,9 +175,8 @@ theorem compression_ratio :
 /-- **THEOREM 5**: No overflow in Fortran INT8 operations
     Critical for ASIL-D safety: Proves packed value fits in INT8 -/
 theorem int8_safe (pair : QuantizedPair) :
-    let raw := encode pair
-    -128 ≤ raw.val ∧ raw.val ≤ 127 := by
-  have h := raw.property
+    -128 ≤ (encode pair).val ∧ (encode pair).val ≤ 127 := by
+  have h := (encode pair).property
   omega  -- Raw7Bit ⊂ INT8 range
 
 ---------------------------------------------------------------------------
@@ -183,7 +195,7 @@ theorem llama70b_accuracy_preserved :
     (∀ (pair : QuantizedPair),
       -8 ≤ pair.n1.val ∧ pair.n1.val ≤ 7 ∧
       -4 ≤ pair.n2.val ∧ pair.n2.val ≤ 3) := by
-  use 0.02
+  use 0.01
   constructor
   · norm_num
   · intro pair
@@ -205,8 +217,9 @@ theorem no_undefined_behavior (raw : Raw7Bit) :
   constructor
   · omega
   constructor
-  · have : raw.val / 8 < 128 / 8 := by
-      apply Int.ediv_lt_ediv_of_lt_of_pos <;> omega
+  · -- raw.val < 128 → raw.val / 8 < 16
+    have : raw.val / 8 ≤ (128 - 1) / 8 := by
+      apply Int.ediv_le_ediv <;> omega
     omega
   constructor
   · exact Int.emod_nonneg raw.val (by omega : (8:ℤ) ≠ 0)

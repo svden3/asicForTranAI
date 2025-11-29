@@ -1,5 +1,6 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Matrix.Basic
+import Mathlib.Tactic.Ring
 import Quantization3p5bit.Basic
 import Quantization3p5bit.ErrorBounds
 
@@ -24,7 +25,8 @@ namespace Quantization3p5bit
 /-- Theorem: Dequantization distributes over addition -/
 theorem dequant_distributes (q1 q2 : ℤ) (scale : ℝ) :
   (q1 + q2 : ℝ) * scale = (q1 : ℝ) * scale + (q2 : ℝ) * scale := by
-  sorry
+  push_cast
+  ring
 
 /-- Theorem: INT4 matmul is correct (placeholder) -/
 theorem matmul_int4_correct {m n k : ℕ}
