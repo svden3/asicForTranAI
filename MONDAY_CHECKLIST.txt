@@ -1,0 +1,15 @@
+MONDAY MORNING CHECKLIST (Dec 1, 9:00 AM)
+
+[ ] Run: ./scripts/week3_kickoff.sh
+[ ] Enter vast.ai API key when prompted
+[ ] Select MI210 instance (look for $1.45-1.55/hour)
+[ ] Wait 2 minutes for instance to start
+[ ] SSH into instance (command provided by script)
+[ ] Verify GPU: rocm-smi --showproductname
+[ ] Verify PyTorch: python3 -c 'import torch; print(torch.cuda.is_available())'
+[ ] Clone repo: git clone https://github.com/[username]/formally-verified-3p5bit-llama.git
+[ ] Change dir: cd formally-verified-3p5bit-llama
+[ ] Ready for Day 2!
+
+ESTIMATED TIME: 1 hour
+COST: $0 (setup only, no billable GPU time)
