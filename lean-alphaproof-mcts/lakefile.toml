@@ -1,0 +1,10 @@
+name = "quantization3p5bit"
+version = "0.1.0"
+defaultTargets = ["quantization3p5bit"]
+
+[[lean_lib]]
+name = "Quantization3p5bit"
+
+[[lean_exe]]
+name = "quantization3p5bit"
+root = "Main"

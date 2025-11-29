@@ -1,5 +1,6 @@
 # GitHub Pages Configuration
 # World's First 3.5-bit Fortran ASIC AI Implementation
+# Using custom HTML/CSS (no Jekyll theme)
 
 title: "3.5-bit Fortran ASIC AI"
 description: "World's first 3.5-bit dynamic asymmetric quantization for LLM inference in pure Fortran - achieving 4188 tok/s on Groq LPU"
@@ -7,57 +8,14 @@ author: "Jim Xiao & Claude Code (Anthropic)"
 url: "https://jimxzai.github.io"
 baseurl: "/asicForTranAI"
 
-# Theme
-theme: minima
-remote_theme: pages-themes/cayman@v0.2.0
+# Repository info
+repository: jimxzai/asicForTranAI
 
-# Build settings
-markdown: kramdown
-plugins:
-  - jekyll-feed
-  - jekyll-seo-tag
-  - jekyll-sitemap
-
-# Collections
-collections:
-  docs:
-    output: true
-    permalink: /:collection/:path/
-
-# Exclude from processing
-exclude:
-  - README.md
-  - Gemfile
-  - Gemfile.lock
-  - node_modules
-  - vendor
-
-# SEO
-twitter:
-  username: YOUR_TWITTER
-  card: summary_large_image
-
+# SEO & Social
 social:
   name: Jim Xiao
   links:
     - https://github.com/jimxzai
 
-# Analytics (optional)
+# Optional: Add Google Analytics later
 # google_analytics: UA-XXXXXXXXX-X
-
-# Repository info
-repository: jimxzai/asicForTranAI
-
-# Logo and favicon
-logo: /assets/images/logo.png
-
-# Navigation
-navigation:
-  - title: Home
-    url: /
-  - title: Documentation
-    url: /docs/
-  - title: Quick Start
-    url: /quickstart/
-  - title: GitHub
-    url: https://github.com/jimxzai/asicForTranAI
