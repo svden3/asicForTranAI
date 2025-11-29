@@ -8,12 +8,13 @@
 ! Optimized for ASIC deployment (Groq LPU, Cerebras, etc.)
 
 module transformer_layer
-    use iso_fortran_env, only: int32, real32
+    use iso_fortran_env, only: int8, int32, real32
     use matmul_int4_groq, only: matmul_int4_awq, dequantize_output
     implicit none
 
     private
     public :: TransformerLayer, apply_transformer_layer
+    public :: HIDDEN_DIM, INTERMEDIATE_DIM, NUM_HEADS, NUM_KV_HEADS, HEAD_DIM
 
     ! LLaMA 70B configuration
     integer(int32), parameter :: HIDDEN_DIM = 8192

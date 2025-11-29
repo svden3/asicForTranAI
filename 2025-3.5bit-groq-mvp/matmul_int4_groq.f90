@@ -3,7 +3,6 @@
 ! Pure Fortran 2023 - No Python, No CUDA
 
 module matmul_int4_groq
-    use iso_c_binding, only: c_int8, c_int32, c_float
     use iso_fortran_env, only: int8, int32, real32
     implicit none
 
@@ -17,14 +16,14 @@ contains
     ! W_Q: Quantized weights [K/8, N] packed 4-bit
     ! W_scales: Per-column dequantization scales [N]
     ! C: Output accumulator [M, N] in INT32
-    pure subroutine matmul_int4_awq(A, W_Q, W_scales, C, M, N, K) bind(C)
-        integer(int32), intent(in), value :: M, N, K
-        integer(int8), intent(in) :: A(M, K)
-        integer(int8), intent(in) :: W_Q(K/8, N)     ! 4-bit packed (2 values per byte)
+    pure subroutine matmul_int4_awq(A, W_Q, W_scales, C, M, N, K_dim)
+        integer(int32), intent(in) :: M, N, K_dim
+        integer(int8), intent(in) :: A(M, K_dim)
+        integer(int8), intent(in) :: W_Q(K_dim/8, N)     ! 4-bit packed (2 values per byte)
         real(real32), intent(in) :: W_scales(N)      ! FP32 scales per column
         integer(int32), intent(out) :: C(M, N)       ! INT32 accumulator
 
-        integer(int32) :: i, j, k, k_packed
+        integer(int32) :: i, j, k_idx, k_packed
         integer(int32) :: qval, packed_byte
         integer(int32), parameter :: BITS_PER_VAL = 4
         integer(int32), parameter :: VALS_PER_BYTE = 2
@@ -35,20 +34,20 @@ contains
             C(i,j) = 0
 
             ! Process packed 4-bit values
-            do k = 1, K, VALS_PER_BYTE
-                k_packed = (k + VALS_PER_BYTE - 1) / VALS_PER_BYTE
+            do k_idx = 1, K_dim, VALS_PER_BYTE
+                k_packed = (k_idx + VALS_PER_BYTE - 1) / VALS_PER_BYTE
                 packed_byte = int(W_Q(k_packed, j), int32)
 
                 ! Extract and process first 4-bit value
                 qval = iand(packed_byte, 15_int32)              ! Lower 4 bits
                 if (qval >= 8) qval = qval - 16                  ! Sign extend
-                C(i,j) = C(i,j) + int(A(i,k), int32) * qval
+                C(i,j) = C(i,j) + int(A(i,k_idx), int32) * qval
 
                 ! Extract and process second 4-bit value (if exists)
-                if (k + 1 <= K) then
+                if (k_idx + 1 <= K_dim) then
                     qval = iand(ishft(packed_byte, -4), 15_int32)  ! Upper 4 bits
                     if (qval >= 8) qval = qval - 16
-                    C(i,j) = C(i,j) + int(A(i,k+1), int32) * qval
+                    C(i,j) = C(i,j) + int(A(i,k_idx+1), int32) * qval
                 end if
             end do
         end do
@@ -57,7 +56,7 @@ contains
     ! Dequantize INT32 accumulator to FP32 output
     ! Groq optimization: fused with next operation in real pipeline
     pure subroutine dequantize_output(C, W_scales, Out, M, N)
-        integer(int32), intent(in), value :: M, N
+        integer(int32), intent(in) :: M, N
         integer(int32), intent(in) :: C(M, N)
         real(real32), intent(in) :: W_scales(N)
         real(real32), intent(out) :: Out(M, N)

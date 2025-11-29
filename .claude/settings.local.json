@@ -17,7 +17,9 @@
       "Bash(gfortran:*)",
       "Bash(cat:*)",
       "Bash(make clean:*)",
-      "Bash(make test:*)"
+      "Bash(make test:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
