@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(chmod:*)",
+      "Bash(export:*)",
+      "Bash(./compile_and_run.sh)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(prompt.txt)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
