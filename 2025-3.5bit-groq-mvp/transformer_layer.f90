@@ -14,6 +14,7 @@ module transformer_layer
 
     private
     public :: TransformerLayer, apply_transformer_layer, init_rope_freqs
+    public :: init_kv_cache, reset_kv_cache, rms_norm
     public :: HIDDEN_DIM, INTERMEDIATE_DIM, NUM_HEADS, NUM_KV_HEADS, HEAD_DIM
 
     ! LLaMA 70B configuration
@@ -51,6 +52,11 @@ module transformer_layer
 
         ! RoPE frequency cache
         real(real32), allocatable :: rope_freqs(:,:)
+
+        ! KV cache for autoregressive generation
+        real(real32), allocatable :: k_cache(:,:,:)  ! [max_seq_len, NUM_KV_HEADS, HEAD_DIM]
+        real(real32), allocatable :: v_cache(:,:,:)  ! [max_seq_len, NUM_KV_HEADS, HEAD_DIM]
+        integer(int32) :: cache_pos  ! Current position in cache
     end type TransformerLayer
 
 contains
@@ -110,6 +116,38 @@ contains
             layer%rope_freqs(pos, d) = real(pos-1, real32) * theta
         end do
     end subroutine init_rope_freqs
+
+    !===========================================================================
+    ! Initialize KV cache for autoregressive generation
+    ! Allocates cache buffers and resets position to 0
+    !===========================================================================
+    subroutine init_kv_cache(layer, max_seq_len)
+        type(TransformerLayer), intent(inout) :: layer
+        integer(int32), intent(in) :: max_seq_len
+
+        ! Allocate KV cache: [max_seq_len, NUM_KV_HEADS, HEAD_DIM]
+        if (.not. allocated(layer%k_cache)) then
+            allocate(layer%k_cache(max_seq_len, NUM_KV_HEADS, HEAD_DIM))
+        end if
+        if (.not. allocated(layer%v_cache)) then
+            allocate(layer%v_cache(max_seq_len, NUM_KV_HEADS, HEAD_DIM))
+        end if
+
+        ! Reset cache position
+        layer%cache_pos = 0
+        layer%k_cache = 0.0
+        layer%v_cache = 0.0
+    end subroutine init_kv_cache
+
+    !===========================================================================
+    ! Reset KV cache position for new generation sequence
+    !===========================================================================
+    subroutine reset_kv_cache(layer)
+        type(TransformerLayer), intent(inout) :: layer
+        layer%cache_pos = 0
+        if (allocated(layer%k_cache)) layer%k_cache = 0.0
+        if (allocated(layer%v_cache)) layer%v_cache = 0.0
+    end subroutine reset_kv_cache
 
     !===========================================================================
     ! RMSNorm: Root Mean Square Layer Normalization
@@ -202,7 +240,7 @@ contains
     ! LLaMA 70B: 64 query heads, 8 key/value heads
     !===========================================================================
     subroutine grouped_query_attention(layer, x_norm, output, seq_len)
-        type(TransformerLayer), intent(in) :: layer
+        type(TransformerLayer), intent(inout) :: layer
         real(real32), intent(in) :: x_norm(seq_len, HIDDEN_DIM)
         real(real32), intent(out) :: output(seq_len, HIDDEN_DIM)
         integer(int32), intent(in), value :: seq_len
@@ -270,6 +308,19 @@ contains
         if (allocated(layer%rope_freqs)) then
             call apply_rope(q, k, layer%rope_freqs, seq_len, NUM_HEADS, HEAD_DIM)
         end if
+
+        ! 2.5. KV Cache management (for efficient autoregressive generation)
+        ! TODO: Full KV cache integration requires modifying attention computation
+        ! to handle variable-length cached sequences. For now, cache infrastructure
+        ! is ready (init_kv_cache, reset_kv_cache, cache arrays allocated).
+        !
+        ! Planned logic:
+        ! - If cache allocated and cache_pos > 0: Use cached K,V for past positions
+        ! - Store current K,V in cache at position cache_pos
+        ! - Increment cache_pos for next iteration
+        !
+        ! This requires changing attention score loop to iterate over
+        ! [1:cache_pos+seq_len] instead of [1:seq_len]
 
         ! 3. Compute attention scores: Q @ K^T / sqrt(head_dim)
         scale_factor = 1.0 / sqrt(real(HEAD_DIM, real32))
@@ -424,7 +475,7 @@ contains
     ! output = output + FFN(RMSNorm(output))
     !===========================================================================
     subroutine apply_transformer_layer(layer, x, output, seq_len)
-        type(TransformerLayer), intent(in) :: layer
+        type(TransformerLayer), intent(inout) :: layer
         real(real32), intent(in) :: x(seq_len, HIDDEN_DIM)
         real(real32), intent(out) :: output(seq_len, HIDDEN_DIM)
         integer(int32), intent(in), value :: seq_len

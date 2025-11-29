@@ -9,8 +9,10 @@ OPENMP_FLAGS = -fopenmp
 
 # Source files
 CORE_SOURCES = matmul_int4_groq.f90 transformer_layer.f90
+MODEL_SOURCES = $(CORE_SOURCES) llama_model.f90
 MAIN_SOURCE = llama70b_int4.f90
 TEST_SOURCE = test_transformer_layer.f90
+TEST_MODEL_SOURCE = test_llama_model.f90
 
 # Object files
 CORE_OBJECTS = $(CORE_SOURCES:.f90=.o)
@@ -18,6 +20,7 @@ CORE_OBJECTS = $(CORE_SOURCES:.f90=.o)
 # Targets
 TARGET_MAIN = llama_inference
 TARGET_TEST = test_layer
+TARGET_MODEL_TEST = test_llama_80layers
 TARGET_DEBUG = test_layer_debug
 
 # Default target - build everything
@@ -60,12 +63,25 @@ parallel: $(CORE_SOURCES) $(TEST_SOURCE)
 %.mod: %.f90
 	$(FC) $(FFLAGS) -c $<
 
-# Quick test - build and run
+# Quick test - build and run single layer
 test: $(TARGET_TEST)
 	@echo ""
 	@echo "Running transformer layer test..."
 	@echo "=========================================="
 	./$(TARGET_TEST)
+
+# Build 80-layer model test
+$(TARGET_MODEL_TEST): $(MODEL_SOURCES) $(TEST_MODEL_SOURCE)
+	@echo "Building 80-layer LLaMA model test..."
+	$(FC) $(FFLAGS) -o $@ $^
+	@echo "✓ Built: $@"
+
+# Test full 80-layer model
+test-model: $(TARGET_MODEL_TEST)
+	@echo ""
+	@echo "Running 80-layer LLaMA model test..."
+	@echo "=========================================="
+	./$(TARGET_MODEL_TEST)
 
 # Run debug version with bounds checking
 test-debug: debug
@@ -92,7 +108,7 @@ lint:
 
 # Clean build artifacts
 clean:
-	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_TEST) $(TARGET_DEBUG) test_layer_omp
+	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_TEST) $(TARGET_MODEL_TEST) $(TARGET_DEBUG) test_layer_omp
 	@echo "✓ Cleaned build artifacts"
 
 # Clean and rebuild
