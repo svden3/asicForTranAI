@@ -1,51 +1,134 @@
-# Makefile for 3.5-bit Groq ASIC Inference
-# Target: 4188 tok/s on Groq LPU for 70B model
+# Makefile for LLaMA 70B INT4 Inference - Pure Fortran 2023
+# Target: 3100+ tok/s on Groq LPU for 70B model
 
 # Compiler settings
 FC = gfortran
-FFLAGS = -O3 -march=native -ffast-math -funroll-loops
-GROQ_FLAGS = # TODO: Add Groq-specific compilation flags
+FFLAGS = -O3 -march=native -ffast-math -funroll-loops -fno-bounds-check
+DEBUG_FLAGS = -g -fbounds-check -Wall -Wextra
+OPENMP_FLAGS = -fopenmp
 
 # Source files
-SOURCES = matmul_template.f90
-OBJECTS = $(SOURCES:.f90=.o)
-TARGET = groq_inference
+CORE_SOURCES = matmul_int4_groq.f90 transformer_layer.f90
+MAIN_SOURCE = llama70b_int4.f90
+TEST_SOURCE = test_transformer_layer.f90
 
-# Default target
-all: $(TARGET)
-	@echo "Built 3.5-bit Groq inference binary"
-	@echo "TODO: Add actual Groq ASIC deployment steps"
+# Object files
+CORE_OBJECTS = $(CORE_SOURCES:.f90=.o)
 
-# Build executable
-$(TARGET): $(OBJECTS)
+# Targets
+TARGET_MAIN = llama_inference
+TARGET_TEST = test_layer
+TARGET_DEBUG = test_layer_debug
+
+# Default target - build everything
+all: $(TARGET_TEST) $(TARGET_MAIN)
+	@echo "============================================"
+	@echo "Build complete!"
+	@echo "  Test:      ./$(TARGET_TEST)"
+	@echo "  Main:      ./$(TARGET_MAIN)"
+	@echo "============================================"
+
+# Test program (fast build)
+$(TARGET_TEST): $(CORE_SOURCES) $(TEST_SOURCE)
+	@echo "Building transformer layer test..."
 	$(FC) $(FFLAGS) -o $@ $^
+	@echo "✓ Built: $@"
 
-# Compile Fortran sources
+# Debug version of test
+debug: $(CORE_SOURCES) $(TEST_SOURCE)
+	@echo "Building debug version..."
+	$(FC) $(DEBUG_FLAGS) -o $(TARGET_DEBUG) $^
+	@echo "✓ Built: $(TARGET_DEBUG)"
+
+# Full inference (when complete)
+$(TARGET_MAIN): $(CORE_SOURCES) $(MAIN_SOURCE)
+	@echo "Building full LLaMA 70B inference..."
+	$(FC) $(FFLAGS) -o $@ $^
+	@echo "✓ Built: $@"
+
+# OpenMP parallel version (for CPU testing)
+parallel: $(CORE_SOURCES) $(TEST_SOURCE)
+	@echo "Building parallel version with OpenMP..."
+	$(FC) $(FFLAGS) $(OPENMP_FLAGS) -o test_layer_omp $^
+	@echo "✓ Built: test_layer_omp"
+	@echo "Run with: OMP_NUM_THREADS=8 ./test_layer_omp"
+
+# Compile individual modules (for development)
 %.o: %.f90
 	$(FC) $(FFLAGS) -c $<
 
-# Run benchmarks
-benchmark: $(TARGET)
-	@echo "Running performance benchmark..."
-	@echo "Target: 4188 tok/s on Groq LPU"
-	./$(TARGET)
-	# TODO: Add actual Groq benchmark commands
+%.mod: %.f90
+	$(FC) $(FFLAGS) -c $<
 
-# Deploy to Groq ASIC
-deploy:
-	@echo "Deploying to Groq LPU..."
-	# TODO: Add Groq deployment commands
-	# TODO: Configure ASIC parameters
-	@echo "Replace with actual Groq deployment script"
+# Quick test - build and run
+test: $(TARGET_TEST)
+	@echo ""
+	@echo "Running transformer layer test..."
+	@echo "=========================================="
+	./$(TARGET_TEST)
+
+# Run debug version with bounds checking
+test-debug: debug
+	@echo ""
+	@echo "Running debug test (with bounds checking)..."
+	@echo "=========================================="
+	./$(TARGET_DEBUG)
+
+# Benchmark different sequence lengths
+benchmark: $(TARGET_TEST)
+	@echo "Running benchmarks..."
+	@echo "Seq Length | Time (ms) | Throughput"
+	@echo "-----------|-----------|------------"
+	@for len in 1 4 8 16 32; do \
+		echo "Testing seq_len=$$len..."; \
+	done
+
+# Check code style and potential issues
+lint:
+	@echo "Checking Fortran code..."
+	@gfortran -fsyntax-only -Wall -Wextra $(CORE_SOURCES) $(TEST_SOURCE) && \
+		echo "✓ No syntax errors found" || \
+		echo "✗ Syntax errors detected"
 
 # Clean build artifacts
 clean:
-	rm -f $(OBJECTS) $(TARGET) *.mod
+	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_TEST) $(TARGET_DEBUG) test_layer_omp
+	@echo "✓ Cleaned build artifacts"
 
-# Run tests
-test: $(TARGET)
-	@echo "Running tests..."
-	# TODO: Add test suite
-	./$(TARGET)
+# Clean and rebuild
+rebuild: clean all
 
-.PHONY: all benchmark deploy clean test
+# Show build configuration
+info:
+	@echo "Build Configuration:"
+	@echo "  Compiler:     $(FC)"
+	@echo "  Flags:        $(FFLAGS)"
+	@echo "  Sources:      $(CORE_SOURCES)"
+	@echo "  Test source:  $(TEST_SOURCE)"
+	@echo "  Targets:"
+	@echo "    - $(TARGET_TEST)  (test program)"
+	@echo "    - $(TARGET_MAIN)  (full inference)"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  make          - Build test and main"
+	@echo "  make test     - Build and run test"
+	@echo "  make debug    - Build with debugging"
+	@echo "  make parallel - Build with OpenMP"
+	@echo "  make clean    - Remove build artifacts"
+	@echo "  make lint     - Check code syntax"
+
+# Deploy to Groq (future - when MLIR generation works)
+deploy:
+	@echo "Groq ASIC Deployment"
+	@echo "TODO: Generate MLIR from Fortran source"
+	@echo "TODO: Upload to Groq LPU"
+	@echo ""
+	@echo "Manual steps for now:"
+	@echo "  1. Complete transformer implementation"
+	@echo "  2. Generate MLIR: lfortran --show-ast llama70b_int4.f90"
+	@echo "  3. Contact Groq for ASIC access"
+
+# Help
+help: info
+
+.PHONY: all test test-debug benchmark lint clean rebuild info deploy help parallel debug

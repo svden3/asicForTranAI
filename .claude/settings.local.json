@@ -13,7 +13,11 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(git config:*)",
-      "Bash(./test_api_key.sh:*)"
+      "Bash(./test_api_key.sh:*)",
+      "Bash(gfortran:*)",
+      "Bash(cat:*)",
+      "Bash(make clean:*)",
+      "Bash(make test:*)"
     ],
     "deny": [],
     "ask": []
