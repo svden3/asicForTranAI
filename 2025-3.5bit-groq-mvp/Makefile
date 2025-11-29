@@ -9,10 +9,12 @@ OPENMP_FLAGS = -fopenmp
 
 # Source files
 CORE_SOURCES = matmul_int4_groq.f90 transformer_layer.f90
+OPTIMIZED_SOURCES = matmul_int4_optimized.f90
 MODEL_SOURCES = $(CORE_SOURCES) llama_model.f90
 MAIN_SOURCE = llama70b_int4.f90
 TEST_SOURCE = test_transformer_layer.f90
 TEST_MODEL_SOURCE = test_llama_model.f90
+BENCHMARK_SOURCE = benchmark_optimizations.f90
 
 # Object files
 CORE_OBJECTS = $(CORE_SOURCES:.f90=.o)
@@ -22,6 +24,7 @@ TARGET_MAIN = llama_inference
 TARGET_TEST = test_layer
 TARGET_MODEL_TEST = test_llama_80layers
 TARGET_DEBUG = test_layer_debug
+TARGET_BENCHMARK = bench_optimizations
 
 # Default target - build everything
 all: $(TARGET_TEST) $(TARGET_MAIN)
@@ -90,7 +93,21 @@ test-debug: debug
 	@echo "=========================================="
 	./$(TARGET_DEBUG)
 
-# Benchmark different sequence lengths
+# Build optimization benchmark
+$(TARGET_BENCHMARK): $(CORE_SOURCES) $(OPTIMIZED_SOURCES) $(BENCHMARK_SOURCE)
+	@echo "Building optimization benchmark..."
+	$(FC) $(FFLAGS) -o $@ $^
+	@echo "✓ Built: $@"
+
+# Run optimization benchmark
+benchmark-opt: $(TARGET_BENCHMARK)
+	@echo ""
+	@echo "Running optimization benchmark..."
+	@echo "This will compare baseline vs optimized implementations"
+	@echo ""
+	./$(TARGET_BENCHMARK)
+
+# Quick benchmark (old)
 benchmark: $(TARGET_TEST)
 	@echo "Running benchmarks..."
 	@echo "Seq Length | Time (ms) | Throughput"
