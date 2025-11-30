@@ -15,6 +15,8 @@
 \usepackage{graphicx}
 \usepackage{algorithm}
 \usepackage{algorithmic}
+\usepackage{tikz}
+\usetikzlibrary{decorations.pathreplacing}
 
 \title{3.5-bit Dynamic Asymmetric Quantization for Extreme-Scale LLM Inference}
 
@@ -161,6 +163,10 @@ where $\epsilon$ is the target quantization error (we aim for $\epsilon < 0.01$)
     n_2 &= \text{packed} \,\&\, 0\text{x}7 \\
     &\text{if } n_2 \geq 4: \quad n_2 \gets n_2 - 8 \quad \text{(sign extension)}
 \end{align}
+
+Figure~\ref{fig:encoding} illustrates the complete 3.5-bit encoding pipeline, showing how two FP32 weights are quantized and packed into a single 7-bit container.
+
+\input{figure1_encoding.tex}
 
 \subsection{Dynamic Per-Channel Scaling}
 
