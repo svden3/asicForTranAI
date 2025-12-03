@@ -177,7 +177,7 @@ contains
         real(real32), intent(in) :: W_scales(:)     ! [N]
         integer(int32), intent(in) :: N, K_dim
 
-        real(real32), allocatable :: W_fp32(:,:)    ! [K, N] host
+        real(real32), allocatable, target :: W_fp32(:,:)    ! [K, N] host
         integer(int32) :: j, k_idx, k_packed
         integer(int32) :: packed_byte, qval
         integer(c_int) :: status
@@ -223,10 +223,10 @@ contains
         integer(int8), intent(in) :: A(:,:)         ! [M, K]
         integer(int8), intent(in) :: W_Q(:,:)       ! [K/2, N] packed
         real(real32), intent(in) :: W_scales(:)     ! [N]
-        real(real32), intent(out) :: Out(:,:)       ! [M, N]
+        real(real32), intent(out), target :: Out(:,:)       ! [M, N]
         integer(int32), intent(in) :: M, N, K_dim
 
-        real(real32), allocatable :: A_fp32(:,:)
+        real(real32), allocatable, target :: A_fp32(:,:)
         integer(c_int) :: status
         integer(c_size_t) :: size_A, size_Out
         real(c_float) :: alpha, beta
@@ -278,10 +278,10 @@ contains
     !> FASTEST for inference - weights already on device
     subroutine matmul_int4_cublas_cached(A, Out, M, N, K_dim)
         integer(int8), intent(in) :: A(:,:)         ! [M, K]
-        real(real32), intent(out) :: Out(:,:)       ! [M, N]
+        real(real32), intent(out), target :: Out(:,:)       ! [M, N]
         integer(int32), intent(in) :: M, N, K_dim
 
-        real(real32), allocatable :: A_fp32(:,:)
+        real(real32), allocatable, target :: A_fp32(:,:)
         integer(c_int) :: status
         integer(c_size_t) :: size_A, size_Out
         real(c_float) :: alpha, beta

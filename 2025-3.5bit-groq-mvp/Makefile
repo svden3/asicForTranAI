@@ -19,7 +19,7 @@ BLAS_INCLUDE =
 # BLAS_FLAGS = -framework Accelerate
 
 # GPU settings for NVIDIA CUDA (100-500× speedup)
-CUDA_PATH = C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.6
+CUDA_PATH = C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.1
 CUDA_LIB = $(CUDA_PATH)/lib/x64
 CUDA_INCLUDE = $(CUDA_PATH)/include
 CUBLAS_FLAGS = -L"$(CUDA_LIB)" -lcublas -lcudart -I"$(CUDA_INCLUDE)"
@@ -200,9 +200,9 @@ benchmark-blas: $(TARGET_BLAS_BENCHMARK)
 # ============================================
 
 # Build cuBLAS benchmark (works with gfortran + CUDA Toolkit)
-$(TARGET_CUBLAS_BENCHMARK): $(CORE_SOURCES) $(SIMD_SOURCES) $(CUBLAS_SOURCES) benchmark_blas.f90
+$(TARGET_CUBLAS_BENCHMARK): $(CORE_SOURCES) $(SIMD_SOURCES) $(CUBLAS_SOURCES) benchmark_gpu.f90
 	@echo "Building cuBLAS GPU benchmark..."
-	@echo "Requires: CUDA Toolkit 12.6 (detected)"
+	@echo "Requires: CUDA Toolkit 10.1 (detected)"
 	@echo "GPU: NVIDIA GeForce RTX 2080 Ti"
 	@echo "Expected speedup: 100-500×"
 	@echo ""
