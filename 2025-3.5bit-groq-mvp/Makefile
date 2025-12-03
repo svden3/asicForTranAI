@@ -50,6 +50,8 @@ BENCHMARK_BLAS_SOURCE = benchmark_blas.f90
 CUBLAS_SOURCES = matmul_cublas.f90
 OPENACC_SOURCES = matmul_openacc.f90
 CUDA_FORTRAN_SOURCES = matmul_cuda_fortran.cuf
+GPU_TRANSFORMER_SOURCES = transformer_layer_gpu.f90
+GPU_MODEL_SOURCES = llama_model_gpu.f90
 
 # Object files
 CORE_OBJECTS = $(CORE_SOURCES:.f90=.o)
@@ -68,6 +70,7 @@ TARGET_BLAS_BENCHMARK = bench_blas
 TARGET_CUBLAS_BENCHMARK = bench_cublas
 TARGET_OPENACC_BENCHMARK = bench_openacc
 TARGET_CUDA_FORTRAN_BENCHMARK = bench_cuda
+TARGET_FULL_MODEL_BENCHMARK = bench_full_model
 TARGET_GEN_WEIGHTS = gen_test_weights
 
 # Default target - build everything
@@ -264,6 +267,24 @@ benchmark-gpu-all: benchmark-cublas benchmark-openacc benchmark-cuda-fortran
 	@echo "See GPU_SETUP_GUIDE.md for details"
 	@echo "=========================================="
 
+# Build Full Model Benchmark (GPU + batching analysis)
+$(TARGET_FULL_MODEL_BENCHMARK): $(CORE_SOURCES) $(CUBLAS_SOURCES) $(GPU_TRANSFORMER_SOURCES) benchmark_full_model.f90
+	@echo "Building full 80-layer model benchmark..."
+	@echo "Tests GPU acceleration + batch size scaling"
+	@echo ""
+	$(FC) $(FFLAGS) $(OPENMP_FLAGS) -o $@ $^ $(CUBLAS_FLAGS)
+	@echo "✓ Built: $@"
+
+# Run Full Model Benchmark
+benchmark-full-model: $(TARGET_FULL_MODEL_BENCHMARK)
+	@echo ""
+	@echo "=========================================="
+	@echo "Running Full Model Benchmark (80 layers)"
+	@echo "Tests batch sizes: M=1, 8, 16, 32"
+	@echo "=========================================="
+	@echo ""
+	PATH="/c/tools/msys64/mingw64/bin:/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.1/bin:$$PATH" ./$(TARGET_FULL_MODEL_BENCHMARK)
+
 # Build test weight generator
 $(TARGET_GEN_WEIGHTS): $(CORE_SOURCES) generate_test_weights.f90
 	@echo "Building test weight generator..."
@@ -327,7 +348,7 @@ lint:
 
 # Clean build artifacts
 clean:
-	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_GENERATE) $(TARGET_TEST) $(TARGET_MODEL_TEST) $(TARGET_WEIGHT_TEST) $(TARGET_SAMPLING_TEST) $(TARGET_DEBUG) $(TARGET_BENCHMARK) $(TARGET_SIMD_BENCHMARK) $(TARGET_BLAS_BENCHMARK) $(TARGET_CUBLAS_BENCHMARK) $(TARGET_OPENACC_BENCHMARK) $(TARGET_CUDA_FORTRAN_BENCHMARK) $(TARGET_GEN_WEIGHTS) test_layer_omp test_weights_*.bin prompt.txt tokens.bin output_tokens.bin output.txt
+	rm -f *.o *.mod $(TARGET_MAIN) $(TARGET_GENERATE) $(TARGET_TEST) $(TARGET_MODEL_TEST) $(TARGET_WEIGHT_TEST) $(TARGET_SAMPLING_TEST) $(TARGET_DEBUG) $(TARGET_BENCHMARK) $(TARGET_SIMD_BENCHMARK) $(TARGET_BLAS_BENCHMARK) $(TARGET_CUBLAS_BENCHMARK) $(TARGET_OPENACC_BENCHMARK) $(TARGET_CUDA_FORTRAN_BENCHMARK) $(TARGET_FULL_MODEL_BENCHMARK) $(TARGET_GEN_WEIGHTS) test_layer_omp test_weights_*.bin prompt.txt tokens.bin output_tokens.bin output.txt
 	@echo "✓ Cleaned build artifacts"
 
 # Clean and rebuild
@@ -359,9 +380,10 @@ info:
 	@echo "  make benchmark-llama - Full 80-layer performance test"
 	@echo ""
 	@echo "GPU Benchmarks (NVIDIA RTX 2080 Ti):"
-	@echo "  make benchmark-cublas        - cuBLAS (100-500× speedup)"
+	@echo "  make benchmark-cublas        - cuBLAS matmul (7× speedup)"
 	@echo "  make benchmark-openacc       - OpenACC directives"
 	@echo "  make benchmark-cuda-fortran  - CUDA Fortran kernels"
+	@echo "  make benchmark-full-model    - Full 80-layer model + batching"
 	@echo "  make benchmark-gpu-all       - Run all GPU benchmarks"
 
 # Comprehensive LLaMA performance benchmark
@@ -393,4 +415,4 @@ deploy:
 # Help
 help: info
 
-.PHONY: all test test-debug test-weights test-sampling benchmark benchmark-blas benchmark-cublas benchmark-openacc benchmark-cuda-fortran benchmark-gpu-all lint clean rebuild info deploy help parallel debug
+.PHONY: all test test-debug test-weights test-sampling benchmark benchmark-blas benchmark-cublas benchmark-openacc benchmark-cuda-fortran benchmark-full-model benchmark-gpu-all lint clean rebuild info deploy help parallel debug
