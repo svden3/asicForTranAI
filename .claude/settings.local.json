@@ -14,7 +14,8 @@
       "Bash(cmd /c \"where /R \"\"C:\\Users\\svden\\AppData\\Local\\Programs\"\" pdflatex.exe 2>nul\")",
       "Bash(cat:*)",
       "Bash(\"C:\\Users\\svden\\.conda\\envs\\gpu\\python.exe\" -u benchmark_rtx2080ti.py)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(make all:*)"
     ],
     "deny": [],
     "ask": []
