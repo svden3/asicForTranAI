@@ -15,7 +15,7 @@
 module transformer_layer_gpu
     use iso_fortran_env, only: int8, int32, real32
     use matmul_cublas, only: matmul_int4_cublas_cached, dequantize_weights_gpu
-    use transformer_layer, only: TransformerLayer, rms_norm, swiglu
+    use transformer_layer, only: TransformerLayer, rms_norm
     use transformer_layer, only: HIDDEN_DIM, INTERMEDIATE_DIM, NUM_HEADS, NUM_KV_HEADS, HEAD_DIM
     implicit none
 
@@ -43,57 +43,53 @@ contains
             return
         end if
 
-        ! Find maximum dimension for memory allocation
-        max_dim = max(HIDDEN_DIM, INTERMEDIATE_DIM)
-
-        ! Allocate GPU memory for activations/outputs
-        ! This is shared across all matmuls in the layer
-        call allocate_gpu_memory(max_batch_size, max_dim, max_dim)
+        ! Note: GPU memory allocation is handled automatically by cuBLAS calls
+        ! No need for explicit pre-allocation
 
         ! Pre-dequantize and upload ALL weights to GPU
         print *, "Dequantizing and uploading weights to GPU..."
 
-        ! Attention weights (4 matrices)
+        ! Attention weights (4 matrices) - weight_id: 1=wq, 2=wk, 3=wv, 4=wo
         if (allocated(layer%wq) .and. allocated(layer%wq_scales)) then
             call dequantize_weights_gpu(layer%wq, layer%wq_scales, &
-                                       NUM_HEADS * HEAD_DIM, HIDDEN_DIM)
+                                       NUM_HEADS * HEAD_DIM, HIDDEN_DIM, 1)
             print *, "  ✓ Q projection uploaded"
         end if
 
         if (allocated(layer%wk) .and. allocated(layer%wk_scales)) then
             call dequantize_weights_gpu(layer%wk, layer%wk_scales, &
-                                       NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM)
+                                       NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM, 2)
             print *, "  ✓ K projection uploaded"
         end if
 
         if (allocated(layer%wv) .and. allocated(layer%wv_scales)) then
             call dequantize_weights_gpu(layer%wv, layer%wv_scales, &
-                                       NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM)
+                                       NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM, 3)
             print *, "  ✓ V projection uploaded"
         end if
 
         if (allocated(layer%wo) .and. allocated(layer%wo_scales)) then
             call dequantize_weights_gpu(layer%wo, layer%wo_scales, &
-                                       HIDDEN_DIM, HIDDEN_DIM)
+                                       HIDDEN_DIM, HIDDEN_DIM, 4)
             print *, "  ✓ O projection uploaded"
         end if
 
-        ! FFN weights (3 matrices)
+        ! FFN weights (3 matrices) - weight_id: 5=w_gate, 6=w_up, 7=w_down
         if (allocated(layer%w_gate) .and. allocated(layer%w_gate_scales)) then
             call dequantize_weights_gpu(layer%w_gate, layer%w_gate_scales, &
-                                       INTERMEDIATE_DIM, HIDDEN_DIM)
+                                       INTERMEDIATE_DIM, HIDDEN_DIM, 5)
             print *, "  ✓ Gate projection uploaded"
         end if
 
         if (allocated(layer%w_up) .and. allocated(layer%w_up_scales)) then
             call dequantize_weights_gpu(layer%w_up, layer%w_up_scales, &
-                                       INTERMEDIATE_DIM, HIDDEN_DIM)
+                                       INTERMEDIATE_DIM, HIDDEN_DIM, 6)
             print *, "  ✓ Up projection uploaded"
         end if
 
         if (allocated(layer%w_down) .and. allocated(layer%w_down_scales)) then
             call dequantize_weights_gpu(layer%w_down, layer%w_down_scales, &
-                                       HIDDEN_DIM, INTERMEDIATE_DIM)
+                                       HIDDEN_DIM, INTERMEDIATE_DIM, 7)
             print *, "  ✓ Down projection uploaded"
         end if
 
@@ -123,8 +119,8 @@ contains
     ! GPU-accelerated int4_linear replacement
     ! Uses cuBLAS with pre-cached weights (7× faster than CPU)
     !===========================================================================
-    subroutine int4_linear_gpu(x, output, M, N, K_dim)
-        integer(int32), intent(in) :: M, N, K_dim
+    subroutine int4_linear_gpu(x, output, M, N, K_dim, weight_id)
+        integer(int32), intent(in) :: M, N, K_dim, weight_id
         real(real32), intent(in) :: x(M, K_dim)
         real(real32), intent(out) :: output(M, N)
 
@@ -137,7 +133,7 @@ contains
         end do
 
         ! GPU matmul with cached weights (weights already on GPU!)
-        call matmul_int4_cublas_cached(x_int8, output, M, N, K_dim)
+        call matmul_int4_cublas_cached(x_int8, output, M, N, K_dim, weight_id)
 
     end subroutine int4_linear_gpu
 
@@ -171,9 +167,9 @@ contains
         allocate(attn_out(seq_len, NUM_HEADS, HEAD_DIM))
 
         ! 1. Q, K, V projections (GPU-accelerated!)
-        call int4_linear_gpu(x_norm, q_flat, seq_len, NUM_HEADS * HEAD_DIM, HIDDEN_DIM)
-        call int4_linear_gpu(x_norm, k_flat, seq_len, NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM)
-        call int4_linear_gpu(x_norm, v_flat, seq_len, NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM)
+        call int4_linear_gpu(x_norm, q_flat, seq_len, NUM_HEADS * HEAD_DIM, HIDDEN_DIM, 1)  ! wq
+        call int4_linear_gpu(x_norm, k_flat, seq_len, NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM, 2)  ! wk
+        call int4_linear_gpu(x_norm, v_flat, seq_len, NUM_KV_HEADS * HEAD_DIM, HIDDEN_DIM, 3)  ! wv
 
         ! 2. Reshape to [seq_len, num_heads, head_dim]
         do i = 1, seq_len
@@ -276,7 +272,7 @@ contains
         end do
 
         ! 8. Output projection (GPU-accelerated!)
-        call int4_linear_gpu(q_flat(:, 1:HIDDEN_DIM), output, seq_len, HIDDEN_DIM, HIDDEN_DIM)
+        call int4_linear_gpu(q_flat(:, 1:HIDDEN_DIM), output, seq_len, HIDDEN_DIM, HIDDEN_DIM, 4)  ! wo
 
         ! 9. Update cache position
         if (allocated(layer%k_cache) .and. allocated(layer%v_cache)) then
@@ -288,6 +284,28 @@ contains
 
     end subroutine grouped_query_attention_gpu
 
+
+    !===========================================================================
+    ! SwiGLU activation helper (copied from transformer_layer)
+    !===========================================================================
+    pure elemental function swish(x) result(y)
+        real(real32), intent(in) :: x
+        real(real32) :: y
+        y = x / (1.0 + exp(-x))
+    end function swish
+
+    pure subroutine swiglu(gate, up, output, seq_len, dim)
+        integer(int32), intent(in), value :: seq_len, dim
+        real(real32), intent(in) :: gate(seq_len, dim)
+        real(real32), intent(in) :: up(seq_len, dim)
+        real(real32), intent(out) :: output(seq_len, dim)
+
+        integer(int32) :: i, j
+
+        do concurrent(i = 1:seq_len, j = 1:dim)
+            output(i,j) = swish(gate(i,j)) * up(i,j)
+        end do
+    end subroutine swiglu
 
     !===========================================================================
     ! RoPE helper (same as CPU version)
@@ -330,16 +348,16 @@ contains
         allocate(swiglu_out(seq_len, INTERMEDIATE_DIM))
 
         ! 1. Gate projection (GPU-accelerated!)
-        call int4_linear_gpu(x_norm, gate_proj, seq_len, INTERMEDIATE_DIM, HIDDEN_DIM)
+        call int4_linear_gpu(x_norm, gate_proj, seq_len, INTERMEDIATE_DIM, HIDDEN_DIM, 5)  ! w_gate
 
         ! 2. Up projection (GPU-accelerated!)
-        call int4_linear_gpu(x_norm, up_proj, seq_len, INTERMEDIATE_DIM, HIDDEN_DIM)
+        call int4_linear_gpu(x_norm, up_proj, seq_len, INTERMEDIATE_DIM, HIDDEN_DIM, 6)  ! w_up
 
         ! 3. SwiGLU activation (CPU - element-wise operation)
         call swiglu(gate_proj, up_proj, swiglu_out, seq_len, INTERMEDIATE_DIM)
 
         ! 4. Down projection (GPU-accelerated!)
-        call int4_linear_gpu(swiglu_out, output, seq_len, HIDDEN_DIM, INTERMEDIATE_DIM)
+        call int4_linear_gpu(swiglu_out, output, seq_len, HIDDEN_DIM, INTERMEDIATE_DIM, 7)  ! w_down
 
         deallocate(gate_proj, up_proj, swiglu_out)
 

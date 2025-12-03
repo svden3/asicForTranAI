@@ -1,0 +1,61 @@
+INSTALL MiKTeX - QUICK STEPS
+================================
+
+STEP 1: Download MiKTeX
+-----------------------
+Open your browser and go to:
+https://miktex.org/download
+
+Or use this direct link:
+https://miktex.org/download/ctan/systems/win32/miktex/setup/windows-x64/basic-miktex-24.1-x64.exe
+
+Click to download (about 300 MB)
+Save to your Downloads folder
+
+
+STEP 2: Install MiKTeX
+-----------------------
+1. Go to your Downloads folder
+2. Find: basic-miktex-24.1-x64.exe (or similar)
+3. RIGHT-CLICK on it
+4. Select "Run as administrator"
+5. Click "Yes" when asked
+
+6. In the installer:
+   - Click "Next"
+   - Accept license → "Next"
+   - Installation scope: Choose "Install for all users"
+   - Install directory: Keep default (C:\Program Files\MiKTeX)
+   - Settings: Select "Yes" for "Install missing packages on-the-fly"
+   - Click "Next" → "Start"
+
+7. Wait for installation (5-7 minutes)
+8. Click "Close" when done
+
+
+STEP 3: Tell Me You're Done
+----------------------------
+After installation completes, come back to Claude Code and type:
+"installed"
+
+Then I'll compile your papers immediately!
+
+
+ALTERNATIVE: Already Have Admin PowerShell Open?
+------------------------------------------------
+Run this command:
+choco install miktex -y
+
+Then wait 5-10 minutes for it to complete.
+
+
+Current Location of Your Paper Files:
+--------------------------------------
+C:\ai\asicForTranAI\2025-3.5bit-groq-mvp\paper\
+
+Ready to compile:
+- paper.tex
+- supplementary.tex
+- All 8 figures
+
+Once MiKTeX is installed, compilation takes just 2 minutes!

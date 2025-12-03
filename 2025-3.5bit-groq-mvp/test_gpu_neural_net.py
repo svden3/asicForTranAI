@@ -115,16 +115,20 @@ def test_pytorch_cuda():
         _ = torch.matmul(A, B)
         torch.cuda.synchronize()
 
-        # Benchmark
+        # Benchmark with multiple iterations for accuracy
+        num_iters = 100
         start = time.time()
-        C = torch.matmul(A, B)
+        for _ in range(num_iters):
+            C = torch.matmul(A, B)
         torch.cuda.synchronize()
-        gpu_time = time.time() - start
+        gpu_time = (time.time() - start) / num_iters
 
         flops = 2 * M * N * K
-        tflops = flops / gpu_time / 1e12
-
-        print(f"  {M}x{K}x{N}: {gpu_time*1000:.2f} ms ({tflops:.2f} TFLOPS)")
+        if gpu_time > 0:
+            tflops = flops / gpu_time / 1e12
+            print(f"  {M}x{K}x{N}: {gpu_time*1000:.2f} ms ({tflops:.2f} TFLOPS)")
+        else:
+            print(f"  {M}x{K}x{N}: <0.01 ms (too fast to measure accurately)")
 
     print()
 

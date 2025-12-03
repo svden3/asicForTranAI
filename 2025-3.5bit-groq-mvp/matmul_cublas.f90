@@ -8,7 +8,7 @@
 !   Throughput: ~125-250 tokens/sec for 70B model
 
 module matmul_cublas
-    use iso_fortran_env, only: int8, int32, real32
+    use iso_fortran_env, only: int8, int32, int64, real32
     use iso_c_binding
     implicit none
 
@@ -20,10 +20,14 @@ module matmul_cublas
     ! cuBLAS handle (opaque pointer)
     type(c_ptr) :: cublas_handle = c_null_ptr
 
-    ! GPU memory pointers
-    type(c_ptr) :: d_A_fp32 = c_null_ptr       ! Device activations
-    type(c_ptr) :: d_W_fp32 = c_null_ptr       ! Device weights
-    type(c_ptr) :: d_Out = c_null_ptr          ! Device output
+    ! GPU memory pointers - separate for each weight matrix in transformer
+    type(c_ptr) :: d_wq = c_null_ptr    ! Query projection
+    type(c_ptr) :: d_wk = c_null_ptr    ! Key projection
+    type(c_ptr) :: d_wv = c_null_ptr    ! Value projection
+    type(c_ptr) :: d_wo = c_null_ptr    ! Output projection
+    type(c_ptr) :: d_w1 = c_null_ptr    ! Gate projection (FFN)
+    type(c_ptr) :: d_w2 = c_null_ptr    ! Up projection (FFN)
+    type(c_ptr) :: d_w3 = c_null_ptr    ! Down projection (FFN)
 
     ! cuBLAS C interface
     interface
@@ -142,40 +146,21 @@ contains
 
 
     !> Allocate GPU memory for activations and outputs
-    !> Call once at model initialization
+    !> DEPRECATED: Memory is now allocated per-call in matmul functions
     subroutine allocate_gpu_memory(M, N, K_dim)
         integer(int32), intent(in) :: M, N, K_dim
-        integer(c_int) :: status
-        integer(c_size_t) :: size_A, size_W, size_Out
-
-        ! Calculate memory sizes
-        size_A = int(M * K_dim * 4, c_size_t)   ! FP32 = 4 bytes
-        size_W = int(K_dim * N * 4, c_size_t)
-        size_Out = int(M * N * 4, c_size_t)
-
-        ! Allocate device memory
-        status = cudaMalloc(d_A_fp32, size_A)
-        if (status /= 0) stop "ERROR: cudaMalloc failed for activations"
-
-        status = cudaMalloc(d_W_fp32, size_W)
-        if (status /= 0) stop "ERROR: cudaMalloc failed for weights"
-
-        status = cudaMalloc(d_Out, size_Out)
-        if (status /= 0) stop "ERROR: cudaMalloc failed for output"
-
-        print *, "✓ GPU memory allocated:"
-        print *, "  Activations:", size_A / 1024**2, "MB"
-        print *, "  Weights:", size_W / 1024**2, "MB"
-        print *, "  Output:", size_Out / 1024**2, "MB"
+        ! No-op: memory now allocated automatically per-call
+        print *, "⚠️  allocate_gpu_memory is deprecated - memory allocated per-call"
     end subroutine allocate_gpu_memory
 
 
     !> Dequantize INT4 weights to FP32 and transfer to GPU
     !> Call once per layer at model load
-    subroutine dequantize_weights_gpu(W_Q, W_scales, N, K_dim)
+    !> weight_id: 1=wq, 2=wk, 3=wv, 4=wo, 5=w_gate, 6=w_up, 7=w_down
+    subroutine dequantize_weights_gpu(W_Q, W_scales, N, K_dim, weight_id)
         integer(int8), intent(in) :: W_Q(:,:)       ! [K/2, N] packed
         real(real32), intent(in) :: W_scales(:)     ! [N]
-        integer(int32), intent(in) :: N, K_dim
+        integer(int32), intent(in) :: N, K_dim, weight_id
 
         real(real32), allocatable, target :: W_fp32(:,:)    ! [K, N] host
         integer(int32) :: j, k_idx, k_packed
@@ -207,9 +192,56 @@ contains
         end do
         !$omp end parallel do
 
-        ! Transfer to GPU
+        ! Allocate device memory directly to the global pointer
         size_W = int(K_dim * N * 4, c_size_t)
-        status = cudaMemcpy(d_W_fp32, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+
+        select case (weight_id)
+            case (1)
+                if (.not. c_associated(d_wq)) then
+                    status = cudaMalloc(d_wq, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for wq"
+                end if
+                status = cudaMemcpy(d_wq, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case (2)
+                if (.not. c_associated(d_wk)) then
+                    status = cudaMalloc(d_wk, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for wk"
+                end if
+                status = cudaMemcpy(d_wk, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case (3)
+                if (.not. c_associated(d_wv)) then
+                    status = cudaMalloc(d_wv, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for wv"
+                end if
+                status = cudaMemcpy(d_wv, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case (4)
+                if (.not. c_associated(d_wo)) then
+                    status = cudaMalloc(d_wo, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for wo"
+                end if
+                status = cudaMemcpy(d_wo, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case (5)
+                if (.not. c_associated(d_w1)) then
+                    status = cudaMalloc(d_w1, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for w1"
+                end if
+                status = cudaMemcpy(d_w1, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case (6)
+                if (.not. c_associated(d_w2)) then
+                    status = cudaMalloc(d_w2, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for w2"
+                end if
+                status = cudaMemcpy(d_w2, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case (7)
+                if (.not. c_associated(d_w3)) then
+                    status = cudaMalloc(d_w3, size_W)
+                    if (status /= 0) stop "ERROR: cudaMalloc failed for w3"
+                end if
+                status = cudaMemcpy(d_w3, c_loc(W_fp32), size_W, cudaMemcpyHostToDevice)
+            case default
+                stop "ERROR: Invalid weight_id in dequantize_weights_gpu"
+        end select
+
         if (status /= 0) stop "ERROR: cudaMemcpy failed for weights"
 
         deallocate(W_fp32)
@@ -219,6 +251,7 @@ contains
 
     !> cuBLAS-accelerated INT4 matmul (with on-the-fly dequantization)
     !> For benchmarking - not optimal for inference
+    !> NOTE: Uses weight_id=1 (temporary) for compatibility
     subroutine matmul_int4_cublas(A, W_Q, W_scales, Out, M, N, K_dim)
         integer(int8), intent(in) :: A(:,:)         ! [M, K]
         integer(int8), intent(in) :: W_Q(:,:)       ! [K/2, N] packed
@@ -226,66 +259,49 @@ contains
         real(real32), intent(out), target :: Out(:,:)       ! [M, N]
         integer(int32), intent(in) :: M, N, K_dim
 
-        real(real32), allocatable, target :: A_fp32(:,:)
-        integer(c_int) :: status
-        integer(c_size_t) :: size_A, size_Out
-        real(c_float) :: alpha, beta
-        integer(int32) :: i, j
+        ! Dequantize weights and upload to GPU (using weight_id=1)
+        call dequantize_weights_gpu(W_Q, W_scales, N, K_dim, 1)
 
-        ! Dequantize weights and upload to GPU
-        call dequantize_weights_gpu(W_Q, W_scales, N, K_dim)
+        ! Use the cached matmul function
+        call matmul_int4_cublas_cached(A, Out, M, N, K_dim, 1)
 
-        ! Convert activations to FP32
-        allocate(A_fp32(M, K_dim))
-        !$omp parallel do collapse(2)
-        do j = 1, K_dim
-            do i = 1, M
-                A_fp32(i, j) = real(A(i, j), real32)
-            end do
-        end do
-        !$omp end parallel do
-
-        ! Transfer activations to GPU
-        size_A = int(M * K_dim * 4, c_size_t)
-        status = cudaMemcpy(d_A_fp32, c_loc(A_fp32), size_A, cudaMemcpyHostToDevice)
-        if (status /= 0) stop "ERROR: cudaMemcpy failed for activations"
-
-        ! Call cuBLAS SGEMM
-        ! Out = A_fp32 * W_fp32
-        alpha = 1.0
-        beta = 0.0
-
-        status = cublasSgemm_v2(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, &
-                                M, N, K_dim, alpha, &
-                                d_A_fp32, M, &
-                                d_W_fp32, K_dim, &
-                                beta, d_Out, M)
-        if (status /= 0) stop "ERROR: cublasSgemm failed"
-
-        ! Synchronize GPU
-        status = cudaDeviceSynchronize()
-
-        ! Copy result back to host
-        size_Out = int(M * N * 4, c_size_t)
-        status = cudaMemcpy(c_loc(Out), d_Out, size_Out, cudaMemcpyDeviceToHost)
-        if (status /= 0) stop "ERROR: cudaMemcpy failed for output"
-
-        deallocate(A_fp32)
     end subroutine matmul_int4_cublas
 
 
     !> cuBLAS-accelerated matmul with pre-dequantized weights on GPU
     !> FASTEST for inference - weights already on device
-    subroutine matmul_int4_cublas_cached(A, Out, M, N, K_dim)
+    !> weight_id: 1=wq, 2=wk, 3=wv, 4=wo, 5=w_gate, 6=w_up, 7=w_down
+    subroutine matmul_int4_cublas_cached(A, Out, M, N, K_dim, weight_id)
         integer(int8), intent(in) :: A(:,:)         ! [M, K]
         real(real32), intent(out), target :: Out(:,:)       ! [M, N]
-        integer(int32), intent(in) :: M, N, K_dim
+        integer(int32), intent(in) :: M, N, K_dim, weight_id
 
         real(real32), allocatable, target :: A_fp32(:,:)
+        type(c_ptr) :: d_A_local, d_Out_local, d_W_current  ! Device pointers
         integer(c_int) :: status
         integer(c_size_t) :: size_A, size_Out
         real(c_float) :: alpha, beta
         integer(int32) :: i, j
+
+        ! Select weight device pointer based on weight_id
+        select case (weight_id)
+            case (1); d_W_current = d_wq
+            case (2); d_W_current = d_wk
+            case (3); d_W_current = d_wv
+            case (4); d_W_current = d_wo
+            case (5); d_W_current = d_w1
+            case (6); d_W_current = d_w2
+            case (7); d_W_current = d_w3
+            case default
+                stop "ERROR: Invalid weight_id in matmul_int4_cublas_cached"
+        end select
+
+        ! Verify weight pointer is initialized
+        if (.not. c_associated(d_W_current)) then
+            print '(A,I0,A)', "ERROR: Weight pointer for weight_id=", weight_id, " is NULL!"
+            print *, "Weights must be uploaded via dequantize_weights_gpu first"
+            stop
+        end if
 
         ! Convert activations to FP32
         allocate(A_fp32(M, K_dim))
@@ -297,9 +313,18 @@ contains
         end do
         !$omp end parallel do
 
-        ! Transfer activations to GPU
+        ! Allocate device memory for this call
         size_A = int(M * K_dim * 4, c_size_t)
-        status = cudaMemcpy(d_A_fp32, c_loc(A_fp32), size_A, cudaMemcpyHostToDevice)
+        size_Out = int(M * N * 4, c_size_t)
+
+        status = cudaMalloc(d_A_local, size_A)
+        if (status /= 0) stop "ERROR: cudaMalloc failed for activations"
+
+        status = cudaMalloc(d_Out_local, size_Out)
+        if (status /= 0) stop "ERROR: cudaMalloc failed for output"
+
+        ! Transfer activations to GPU
+        status = cudaMemcpy(d_A_local, c_loc(A_fp32), size_A, cudaMemcpyHostToDevice)
         if (status /= 0) stop "ERROR: cudaMemcpy failed for activations"
 
         ! Call cuBLAS SGEMM (weights already on device)
@@ -308,18 +333,22 @@ contains
 
         status = cublasSgemm_v2(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, &
                                 M, N, K_dim, alpha, &
-                                d_A_fp32, M, &
-                                d_W_fp32, K_dim, &
-                                beta, d_Out, M)
+                                d_A_local, M, &
+                                d_W_current, K_dim, &
+                                beta, d_Out_local, M)
         if (status /= 0) stop "ERROR: cublasSgemm failed"
 
         ! Synchronize GPU
         status = cudaDeviceSynchronize()
+        if (status /= 0) stop "ERROR: cudaDeviceSynchronize failed"
 
         ! Copy result back to host
-        size_Out = int(M * N * 4, c_size_t)
-        status = cudaMemcpy(c_loc(Out), d_Out, size_Out, cudaMemcpyDeviceToHost)
+        status = cudaMemcpy(c_loc(Out), d_Out_local, size_Out, cudaMemcpyDeviceToHost)
         if (status /= 0) stop "ERROR: cudaMemcpy failed for output"
+
+        ! Free local device memory
+        status = cudaFree(d_A_local)
+        status = cudaFree(d_Out_local)
 
         deallocate(A_fp32)
     end subroutine matmul_int4_cublas_cached

@@ -38,6 +38,34 @@ program benchmark_full_model
     layer%attn_norm = 1.0
     layer%ffn_norm = 1.0
 
+    ! Allocate dummy quantized weights for GPU testing
+    ! Attention weights
+    allocate(layer%wq(HIDDEN_DIM/2, NUM_HEADS * HEAD_DIM))
+    allocate(layer%wq_scales(NUM_HEADS * HEAD_DIM))
+    allocate(layer%wk(HIDDEN_DIM/2, NUM_KV_HEADS * HEAD_DIM))
+    allocate(layer%wk_scales(NUM_KV_HEADS * HEAD_DIM))
+    allocate(layer%wv(HIDDEN_DIM/2, NUM_KV_HEADS * HEAD_DIM))
+    allocate(layer%wv_scales(NUM_KV_HEADS * HEAD_DIM))
+    allocate(layer%wo(HIDDEN_DIM/2, HIDDEN_DIM))
+    allocate(layer%wo_scales(HIDDEN_DIM))
+
+    ! FFN weights
+    allocate(layer%w_gate(HIDDEN_DIM/2, INTERMEDIATE_DIM))
+    allocate(layer%w_gate_scales(INTERMEDIATE_DIM))
+    allocate(layer%w_up(HIDDEN_DIM/2, INTERMEDIATE_DIM))
+    allocate(layer%w_up_scales(INTERMEDIATE_DIM))
+    allocate(layer%w_down(INTERMEDIATE_DIM/2, HIDDEN_DIM))
+    allocate(layer%w_down_scales(HIDDEN_DIM))
+
+    ! Initialize with dummy values
+    layer%wq = 0; layer%wq_scales = 1.0
+    layer%wk = 0; layer%wk_scales = 1.0
+    layer%wv = 0; layer%wv_scales = 1.0
+    layer%wo = 0; layer%wo_scales = 1.0
+    layer%w_gate = 0; layer%w_gate_scales = 1.0
+    layer%w_up = 0; layer%w_up_scales = 1.0
+    layer%w_down = 0; layer%w_down_scales = 1.0
+
     call init_rope_freqs(layer, MAX_SEQ_LEN)
     call init_kv_cache(layer, MAX_SEQ_LEN)
 

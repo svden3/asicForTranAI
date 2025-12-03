@@ -1,0 +1,92 @@
+HOW TO COMPILE YOUR PAPERS TO PDF
+===================================
+
+STEP 1: Close and Restart Terminal
+-----------------------------------
+1. Close this terminal/Claude Code window completely
+2. This refreshes the PATH to include MiKTeX
+
+
+STEP 2: Run the Batch File
+---------------------------
+Open a new terminal and run:
+
+   cd C:\ai\asicForTranAI\2025-3.5bit-groq-mvp\paper
+   compile_papers.bat
+
+Or:
+   1. Open File Explorer
+   2. Navigate to: C:\ai\asicForTranAI\2025-3.5bit-groq-mvp\paper
+   3. Double-click "compile_papers.bat"
+
+
+STEP 3: Wait for Compilation
+-----------------------------
+The batch file will:
+- Check if pdflatex is installed
+- Compile paper.tex (twice for cross-references)
+- Compile supplementary.tex (twice)
+- Show you the results
+- Ask if you want to clean up auxiliary files
+
+This takes about 2-3 minutes.
+
+
+WHAT YOU'LL GET
+---------------
+After successful compilation:
+
+  paper.pdf              - Main paper (ready for submission)
+  supplementary.pdf      - Supplementary materials
+
+Both files will be in:
+  C:\ai\asicForTranAI\2025-3.5bit-groq-mvp\paper\
+
+
+TROUBLESHOOTING
+---------------
+
+Problem: "pdflatex not found"
+Solution:
+  - Restart your computer to refresh all environment variables
+  - Or manually add to PATH:
+    C:\Program Files\MiKTeX\miktex\bin\x64
+
+Problem: Compilation errors
+Solution:
+  - Check the .log files for details
+  - Missing packages will auto-install if you enabled that option
+  - Open MiKTeX Console to manually install packages if needed
+
+
+ALTERNATIVE: Manual Commands
+-----------------------------
+If you prefer to run commands manually:
+
+cd C:\ai\asicForTranAI\2025-3.5bit-groq-mvp\paper
+
+pdflatex paper.tex
+pdflatex paper.tex
+
+pdflatex supplementary.tex
+pdflatex supplementary.tex
+
+
+NEXT STEPS
+----------
+Once you have the PDFs:
+
+1. Review paper.pdf for formatting
+2. Review supplementary.pdf for completeness
+3. Submit to ICML 2025 (deadline: February 1, 2025)
+
+Target venue: https://icml.cc/Conferences/2025
+
+
+FILES READY FOR COMPILATION
+----------------------------
+- paper.tex (2.4 KB)
+- supplementary.tex (12 KB)
+- 8 figures in figures/ folder
+
+All files are ready!
