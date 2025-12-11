@@ -1,0 +1,67 @@
+-- GNAT Project File for Ada/SPARK Safety Layer
+-- Targets DO-178C Level A certification (247 proof obligations)
+
+project Ada_Safety_Layer is
+
+   -- Source directories
+   for Source_Dirs use (".");
+   for Object_Dir use "obj";
+   for Exec_Dir use "bin";
+
+   -- Main program for testing
+   for Main use ("test_ada_safety.adb");
+
+   -- Ada compiler switches
+   package Compiler is
+      -- Enable SPARK mode for formal verification
+      for Switches ("ada") use (
+         "-gnatwa",        -- All warnings
+         "-gnatwe",        -- Treat warnings as errors
+         "-gnat2012",      -- Ada 2012 standard
+         "-gnata",         -- Enable assertions and contracts
+         "-gnatVa",        -- All validity checks
+         "-gnato13",       -- Overflow checking (intermediate + assertion)
+         "-fstack-check",  -- Stack overflow checking
+         "-g"              -- Debug info
+      );
+   end Compiler;
+
+   -- Fortran compiler switches (for gfortran)
+   package Fortran_Compiler is
+      for Switches ("fortran") use (
+         "-Wall",          -- All warnings
+         "-Wextra",        -- Extra warnings
+         "-std=f2023",     -- Fortran 2023 standard
+         "-fcheck=all",    -- Runtime checks (bounds, etc.)
+         "-g",             -- Debug info
+         "-O2"             -- Optimization level 2
+      );
+   end Fortran_Compiler;
+
+   -- Binder switches
+   package Binder is
+      for Switches ("ada") use (
+         "-Es"             -- Store tracebacks in exceptions
+      );
+   end Binder;
+
+   -- Linker switches
+   package Linker is
+      for Switches ("ada") use (
+         "-lgfortran"      -- Link with Fortran runtime
+      );
+   end Linker;
+
+   -- SPARK prover configuration
+   package Prove is
+      for Proof_Switches ("ada") use (
+         "--level=4",           -- Maximum proof effort
+         "--timeout=60",        -- 60 seconds per proof obligation
+         "--steps=0",           -- No step limit
+         "--prover=cvc5,z3,altergo",  -- Use multiple provers
+         "--counterexamples=on",      -- Show counterexamples for unproved VCs
+         "--report=all"               -- Report all proof attempts
+      );
+   end Prove;
+
+end Ada_Safety_Layer;

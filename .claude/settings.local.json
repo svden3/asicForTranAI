@@ -25,7 +25,16 @@
       "Bash(python:*)",
       "Bash(where:*)",
       "Bash(conda --version:*)",
-      "Bash(conda install:*)"
+      "Bash(conda install:*)",
+      "Bash(pip install:*)",
+      "Bash(conda info:*)",
+      "Bash(conda activate:*)",
+      "Bash(C:Userssvden.condaenvsgpupython.exe --version)",
+      "Bash(C:Userssvden.condaenvsgpupython.exe -m pip:*)",
+      "Bash(\"C:\\Users\\svden\\.conda\\envs\\gpu\\python.exe\" --version)",
+      "Bash(\"C:\\Users\\svden\\.conda\\envs\\gpu\\python.exe\" -m pip list)",
+      "Bash(docker --version:*)",
+      "Bash(docker-compose build:*)"
     ],
     "deny": [],
     "ask": []

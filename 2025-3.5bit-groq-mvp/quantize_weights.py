@@ -15,11 +15,20 @@ def quantize_to_3p5bit(weights_fp32, group_size=128):
         group_size: quantization group size (default 128)
 
     Returns:
-        w_pack: int8 array [K/2, N] - packed 3.5-bit values
+        w_pack: int8 array [K_padded/2, N] - packed 3.5-bit values
         scales: float32 array [N] - per-column scales
         offsets: float32 array [N] - per-column zero-points
+        K_orig: int - original K dimension (before padding)
     """
     K, N = weights_fp32.shape
+
+    # Pad K to even if necessary
+    K_orig = K
+    if K % 2 != 0:
+        K = K + 1
+        weights_fp32_padded = np.zeros((K, N), dtype=np.float32)
+        weights_fp32_padded[:K_orig, :] = weights_fp32
+        weights_fp32 = weights_fp32_padded
 
     # Per-column quantization (AWQ-style)
     scales = np.zeros(N, dtype=np.float32)
@@ -32,11 +41,14 @@ def quantize_to_3p5bit(weights_fp32, group_size=128):
         # Compute scale and offset (symmetric quantization is better for 3.5-bit)
         w_absmax = np.abs(w_col).max()
 
-        # Use conservative quantization range
-        # For alternating 4-bit and 3-bit, use 3-bit range as reference
-        quant_max = 3.0  # 3-bit signed max
+        # Use full quantization range
+        # For alternating 4-bit and 3-bit, we use average range
+        # 4-bit: [-8, 7] range=15, 3-bit: [-4, 3] range=7
+        # Average: (15+7)/2 = 11, use 7 as max value (conservative but balanced)
+        quant_max = 7.0  # Conservative max for mixed precision
 
-        scale = w_absmax / (quant_max + 1e-8)
+        # Add epsilon to w_absmax to handle zero inputs
+        scale = (w_absmax + 1e-8) / quant_max
         offset = 0.0  # Symmetric quantization
 
         scales[col] = scale
@@ -63,12 +75,18 @@ def quantize_to_3p5bit(weights_fp32, group_size=128):
             raw7 = (u1 << 3) | u2
             w_pack[k // 2, col] = np.int8(raw7)
 
-    return w_pack, scales, offsets
+    return w_pack, scales, offsets, K_orig
 
 
-def dequantize_from_3p5bit(w_pack, scales, offsets):
+def dequantize_from_3p5bit(w_pack, scales, offsets, K_orig=None):
     """
     Dequantize back to FP32 for verification
+
+    Args:
+        w_pack: packed weights
+        scales: per-column scales
+        offsets: per-column offsets
+        K_orig: original K dimension (before padding), if None returns full K
     """
     K_half, N = w_pack.shape
     K = K_half * 2
@@ -89,6 +107,9 @@ def dequantize_from_3p5bit(w_pack, scales, offsets):
             if k + 1 < K:
                 weights_fp32[k+1, col] = (n2 + offsets[col]) * scales[col]
 
+    # Return only original rows if K_orig specified
+    if K_orig is not None:
+        return weights_fp32[:K_orig, :]
     return weights_fp32
 
 
@@ -110,17 +131,18 @@ def test_quantization():
     print()
 
     # Quantize
-    w_pack, scales, offsets = quantize_to_3p5bit(weights_original)
+    w_pack, scales, offsets, K_orig = quantize_to_3p5bit(weights_original)
 
     print(f"Quantized weights:")
     print(f"  w_pack: shape={w_pack.shape}, dtype={w_pack.dtype}")
     print(f"  scales: shape={scales.shape}, dtype={scales.dtype}")
     print(f"  offsets: shape={offsets.shape}, dtype={offsets.dtype}")
+    print(f"  K_orig: {K_orig} (K_padded: {w_pack.shape[0]*2})")
     print()
 
     # Compression ratio
     original_bytes = K * N * 4  # FP32
-    compressed_bytes = (K // 2) * N * 1 + N * 8  # INT8 packed + FP32 scales/offsets
+    compressed_bytes = (K_orig // 2 if K_orig % 2 == 0 else (K_orig + 1) // 2) * N * 1 + N * 8  # INT8 packed + FP32 scales/offsets
     ratio = original_bytes / compressed_bytes
 
     print(f"Compression:")
@@ -130,7 +152,7 @@ def test_quantization():
     print()
 
     # Dequantize and check error
-    weights_dequant = dequantize_from_3p5bit(w_pack, scales, offsets)
+    weights_dequant = dequantize_from_3p5bit(w_pack, scales, offsets, K_orig)
 
     error = np.abs(weights_original - weights_dequant)
     mse = np.mean(error ** 2)
