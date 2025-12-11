@@ -2,7 +2,23 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:gazillioner.com)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(echo:*)",
+      "Bash(IMPLEMENTATION_SUMMARY.md)",
+      "Bash(\"C:\\ai\\asicForTranAI\\2025-3.5bit-groq-mvp\\IMPLEMENTATION_SUMMARY.md\")",
+      "Bash(python:*)",
+      "Bash(pdflatex:*)",
+      "Bash(gfortran:*)",
+      "Bash(nul)",
+      "Bash(where pdflatex 2)",
+      "Bash(dir:*)",
+      "Bash(npm install:*)",
+      "Bash(else echo \"MSYS2 not found - need to install\")",
+      "Bash(fi)",
+      "Bash(npm init playwright@latest)",
+      "Bash(npx playwright install)",
+      "Bash(npm search:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []
