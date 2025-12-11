@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  quantization:
+    build: .
+    image: asicfortranai:latest
+    container_name: 3p5bit-quantization
+    volumes:
+      - ./output:/app/output
+      - ./figures:/app/figures
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python 2025-3.5bit-groq-mvp/benchmark_3p5bit.py
+
+  test:
+    build: .
+    image: asicfortranai:latest
+    container_name: 3p5bit-test
+    volumes:
+      - ./output:/app/output
+    command: python 2025-3.5bit-groq-mvp/test_suite.py
+
+  inference:
+    build: .
+    image: asicfortranai:latest
+    container_name: 3p5bit-inference
+    volumes:
+      - ./output:/app/output
+    command: python 2025-3.5bit-groq-mvp/test_model_inference.py

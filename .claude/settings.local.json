@@ -15,7 +15,17 @@
       "Bash(cat:*)",
       "Bash(\"C:\\Users\\svden\\.conda\\envs\\gpu\\python.exe\" -u benchmark_rtx2080ti.py)",
       "Bash(timeout:*)",
-      "Bash(make all:*)"
+      "Bash(make all:*)",
+      "Bash(cmd /c \"where /R \"C:UserssvdenAppDataLocalPrograms\" pdflatex.exe 2>nul\")",
+      "Bash(C:toolsmsys64usrbinbash -lc \"cd /c/ai/asicForTranAI; which pdflatex\")",
+      "Bash(C:/tools/msys64/mingw64/bin/pdflatex.exe:*)",
+      "Bash(wsl --version:*)",
+      "Bash(wsl:*)",
+      "Bash(tectonic:*)",
+      "Bash(python:*)",
+      "Bash(where:*)",
+      "Bash(conda --version:*)",
+      "Bash(conda install:*)"
     ],
     "deny": [],
     "ask": []

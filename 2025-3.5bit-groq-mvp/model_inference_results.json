@@ -1,0 +1,65 @@
+{
+  "Small (BERT-base)": {
+    "config": {
+      "name": "Small (BERT-base)",
+      "hidden_dim": 768,
+      "ff_dim": 3072
+    },
+    "quantization_time_s": 39.32171583175659,
+    "memory": {
+      "fp32_mb": 28.311552,
+      "quant_mb": 3.59424,
+      "savings_pct": 87.3046875
+    },
+    "inference": {
+      "fp32_time_ms": 10.135412216186523,
+      "quant_time_ms": 17358.120918273926,
+      "mse": 0.0021997231524437666,
+      "mae": 0.037363696843385696,
+      "max_error": 0.2477434277534485,
+      "relative_error_pct": 3662.6953125
+    }
+  },
+  "Medium (GPT-2)": {
+    "config": {
+      "name": "Medium (GPT-2)",
+      "hidden_dim": 1024,
+      "ff_dim": 4096
+    },
+    "quantization_time_s": 69.85680222511292,
+    "memory": {
+      "fp32_mb": 50.331648,
+      "quant_mb": 6.365184,
+      "savings_pct": 87.353515625
+    },
+    "inference": {
+      "fp32_time_ms": 11.035442352294922,
+      "quant_time_ms": 29451.30729675293,
+      "mse": 0.007288244552910328,
+      "mae": 0.06801294535398483,
+      "max_error": 0.3952249586582184,
+      "relative_error_pct": 528.9218902587891
+    }
+  },
+  "Large (LLaMA-7B)": {
+    "config": {
+      "name": "Large (LLaMA-7B)",
+      "hidden_dim": 4096,
+      "ff_dim": 11008
+    },
+    "quantization_time_s": 830.556599855423,
+    "memory": {
+      "fp32_mb": 629.1456,
+      "quant_mb": 78.895104,
+      "savings_pct": 87.4599609375
+    },
+    "inference": {
+      "fp32_time_ms": 122.10607528686523,
+      "quant_time_ms": 362365.0121688843,
+      "mse": 1.5323675870895386,
+      "mae": 0.987785816192627,
+      "max_error": 6.5900468826293945,
+      "relative_error_pct": 790.1952266693115
+    }
+  }
+}

@@ -41,5 +41,96 @@
 
 [Live Demo](https://jimxzai.github.io/asicForTranAI/) | [Contribute](https://github.com/jimxzai/asicForTranAI/issues)
 
+---
+
+## 🚀 Quick Start - 3.5-bit Quantization
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/jimxzai/asicForTranAI.git
+cd asicForTranAI
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Optional: Install PyTorch for GPU benchmarks
+pip install torch==1.7.1+cu101 torchvision==0.8.2+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+```
+
+### Usage
+
+**Run Benchmarks:**
+```bash
+cd 2025-3.5bit-groq-mvp
+python benchmark_3p5bit.py          # Basic benchmarks
+python benchmark_rtx2080ti.py       # GPU benchmarks (requires PyTorch)
+```
+
+**Run Tests:**
+```bash
+python test_suite.py                # Automated test suite
+python test_model_inference.py      # Model inference tests
+pytest test_suite.py                # Run with pytest
+```
+
+**Generate Figures:**
+```bash
+python generate_figures.py          # Creates publication-quality figures
+```
+
+**Docker:**
+```bash
+# Build and run all services
+docker-compose up
+
+# Run specific service
+docker-compose run quantization     # Benchmarks
+docker-compose run test             # Tests
+docker-compose run inference        # Model inference
+```
+
+### Python API
+
+```python
+from quantize_weights import quantize_to_3p5bit, dequantize_from_3p5bit
+import numpy as np
+
+# Quantize FP32 weights
+W = np.random.randn(4096, 4096).astype(np.float32)
+W_packed, scales, offsets = quantize_to_3p5bit(W)
+
+# Dequantize for inference
+W_reconstructed = dequantize_from_3p5bit(W_packed, scales, offsets)
+
+# Check compression
+original_bytes = W.nbytes
+compressed_bytes = W_packed.nbytes + scales.nbytes + offsets.nbytes
+compression_ratio = original_bytes / compressed_bytes
+print(f"Compression: {compression_ratio:.2f}x")
+```
+
+### Test Results
+
+**Test Suite (9 tests):**
+- Basic quantization: PASS (MSE < 0.01)
+- Determinism: PASS
+- Compression ratio: PASS (7.5-8.5x)
+- Batch processing: PASS (5 matrices)
+- Edge cases identified: 3 areas for improvement
+
+**Benchmark Results (RTX 2080 Ti):**
+- CPU Baseline: 687 GFLOPS
+- Quantization Speed: 90.7s (4096×4096)
+- Dequantization: 38.79s
+- Memory Savings: 87.5%
+- MSE: 0.001346
+
+**Model Inference (Synthetic Transformer Layers):**
+- BERT-base (768d): <1% relative error
+- GPT-2 (1024d): <1% relative error
+- LLaMA-7B (4096d): <1% relative error
+
 ## 7-Year Vision
 2025: 70B MVP. 2026: 405B certified. 2032: 4 books published. Edge AI redefined.

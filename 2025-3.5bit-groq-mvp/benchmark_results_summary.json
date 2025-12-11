@@ -1,0 +1,8 @@
+{
+  "cpu_peak_gflops": 687.21,
+  "compression_ratio": 7.97,
+  "memory_savings_percent": 87.5,
+  "quantization_error_mse": 0.001346,
+  "fp32_memory_mb": 314.57,
+  "quantized_memory_mb": 39.44
+}

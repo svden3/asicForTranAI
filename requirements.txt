@@ -1,0 +1,17 @@
+# Core dependencies
+numpy>=1.16.0,<2.0.0
+matplotlib>=3.0.0
+
+# Optional: PyTorch for GPU benchmarks
+# torch==1.7.1+cu101
+# torchvision==0.8.2+cu101
+
+# Testing
+pytest>=6.0.0
+
+# Documentation
+markdown>=3.3.0
+
+# Development
+black>=21.0
+flake8>=3.9.0
