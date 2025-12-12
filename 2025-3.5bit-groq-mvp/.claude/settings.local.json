@@ -18,7 +18,11 @@
       "Bash(npm init playwright@latest)",
       "Bash(npx playwright install)",
       "Bash(npm search:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npm install)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
