@@ -34,7 +34,8 @@
       "Bash(\"C:\\Users\\svden\\.conda\\envs\\gpu\\python.exe\" --version)",
       "Bash(\"C:\\Users\\svden\\.conda\\envs\\gpu\\python.exe\" -m pip list)",
       "Bash(docker --version:*)",
-      "Bash(docker-compose build:*)"
+      "Bash(docker-compose build:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
