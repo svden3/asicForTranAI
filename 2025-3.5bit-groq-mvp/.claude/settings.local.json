@@ -45,7 +45,8 @@
       "Bash(powershell:*)",
       "Bash(timeout /t:*)",
       "Bash(docker info:*)",
-      "Bash(pandoc:*)"
+      "Bash(pandoc:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []
